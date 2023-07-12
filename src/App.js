@@ -1,62 +1,93 @@
 import React from 'react';
-import { Block } from './Block';
 import './index.scss';
+import Collection from './Collection';
+import axios from 'axios';
 
 function App() {
-  // const [rates, setRates] = React.useState({});
-  const [fromCurrency, setFromCurrency] = React.useState('UAH');
-  const [toCurrency, setToCurrency] = React.useState('USD');
-  const [fromPrice, setFromPrice] = React.useState(0);
-  const [toPrice, setToPrice] = React.useState(1);
+  const [collections, setCollections] = React.useState([]);
+  const [isLoading, setIsLoading] = React.useState(true);
+  const [textSearch, setTextSearch] = React.useState('');
+  const [activeCategory, setActiveCategory] = React.useState(0);
+  const [activePage, setActivePage] = React.useState(1);
+  const limitOnPage = 3;
 
-  const ratesRef = React.useRef({});
+  const categories = [
+    "Все",
+    "Походы в горы",
+    "Море (июнь)",
+    "Поездка в Европу",
+    "Идеальная архитектура",
+    "Красивые здания",
+    "Путешествие по миру",
+    "Путешествие куда-то",
+    "Хороший вкус",
+    "Летний отдыx"
+  ];
+
+  const getFullBackUrl = ()=> {
+    let baseUrl = `http://63273cdb5731f3db9955fb8a.mockapi.io/photos-data?page=${activePage}&limit=${limitOnPage}&`;
+    if (activeCategory) baseUrl += `category=${activeCategory}`;
+    return baseUrl;
+  };
+
+  const getFilteredCollections = () => {
+    return collections.filter((collection) =>
+      collection.name.toLowerCase().includes(textSearch.toLowerCase()),
+    );
+  };
 
   React.useEffect(() => {
-    fetch('https://api.exchangerate.host/latest')
-      .then((res) => res.json())
-      .then((data) => {
-        ratesRef.current = data.rates;
-        onChangeToPrice(1);
-      }).catch((err) => {
-        console.warn(err);
+    setIsLoading(true);
+    axios
+      .get(getFullBackUrl())
+      .then(({ data }) => {
+        setCollections(data);
       })
-  }, []);
-
-  const onChangeFromPrice = (value) => {
-    const price = value / ratesRef.current[fromCurrency];
-    const result = price * ratesRef.current[toCurrency];
-    setFromPrice(value);
-    setToPrice(result.toFixed(3));
-  }
-
-  const onChangeToPrice = (value) => {
-    const result = (ratesRef.current[fromCurrency] / ratesRef.current[toCurrency]) * value;
-    setFromPrice(result.toFixed(3));
-    setToPrice(value);
-  }
-
-  React.useEffect(() => {
-    onChangeFromPrice(fromPrice);
-  }, [fromCurrency])
-
-  React.useEffect(() => {
-    onChangeToPrice(toPrice);
-  }, [toCurrency])
+      .catch((error) => {
+        console.warn(error);
+        alert('Ошибка при получении данных');
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
+  }, [activeCategory, activePage]);
 
   return (
     <div className="App">
-      <Block 
-        value={fromPrice} 
-        currency={fromCurrency} 
-        onChangeCurrency={setFromCurrency} 
-        onChangeValue={onChangeFromPrice} 
-      />
-      <Block 
-        value={toPrice} 
-        currency={toCurrency} 
-        onChangeCurrency={setToCurrency} 
-        onChangeValue={onChangeToPrice}
-      />
+      <h1>Моя коллекция фотографий</h1>
+      <div className="top">
+        <ul className="tags">
+          {categories.map((category, index) => (
+            <li
+              className={index == activeCategory ? 'active' : ''}
+              onClick={() => setActiveCategory(index)}>
+              {category}
+            </li>
+          ))}
+        </ul>
+        <input
+          className="search-input"
+          placeholder="Поиск по названию"
+          value={textSearch}
+          onChange={(e) => setTextSearch(e.target.value)}
+        />
+      </div>
+      <div className="content">
+        {isLoading ? (
+          <h2>Идет загрузка...</h2>
+        ) : (
+          getFilteredCollections().map((collection) => (
+            <Collection name={collection.name} photos={collection.photos} />
+          ))
+        )}
+      </div>
+      <ul className="pagination">
+        {[...Array(3)].map((_, i) => (
+          <li className={i + 1 == activePage ? 'active' : ''} onClick={() => setActivePage(i + 1)}>
+            {i + 1}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
